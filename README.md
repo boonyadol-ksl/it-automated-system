@@ -25,7 +25,7 @@ Built with **FastAPI + SQLite + HTMX + Tailwind CSS**
 ## โครงสร้าง
 
 ```
-ksl_itops/
+itops/
 ├── server/         # FastAPI server + Web UI
 │   ├── app.py      # API endpoints
 │   ├── ui.py       # UI routes (HTMX)
@@ -61,8 +61,8 @@ config/
 ### 1. Clone & Install
 
 ```powershell
-git clone https://github.com/<your-username>/ksl-it-automated-system.git
-cd "ksl-it-automated-system"
+git clone https://github.com/<your-username>/it-automated-system.git
+cd "it-automated-system"
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -73,11 +73,11 @@ pip install -r requirements.txt
 ```powershell
 # Server config
 Copy-Item config\server.env.example config\server.env
-# แก้ KSL_API_KEY ใน config\server.env
+# แก้ API_KEY ใน config\server.env
 
 # Agent config
 Copy-Item config\agent.yml.example config\agent.yml
-# แก้ api.api_key ให้ตรงกับ KSL_API_KEY
+# แก้ api.api_key ให้ตรงกับ API_KEY
 
 # Network segments
 Copy-Item config\network_segments.yml.example config\network_segments.yml
@@ -90,7 +90,7 @@ Copy-Item config\scanner.yml.example config\scanner.yml
 ### 3. รัน Server
 
 ```powershell
-python -m ksl_itops.server.run --env-file config\server.env
+python -m itops.server.run --env-file config\server.env
 ```
 
 เปิด browser: **http://127.0.0.1:8800**
@@ -98,13 +98,13 @@ python -m ksl_itops.server.run --env-file config\server.env
 ### 4. รัน Agent (แต่ละเครื่อง)
 
 ```powershell
-python -m ksl_itops.agent.run --config config\agent.yml --policies config\policies.yml --no-jitter --verbose
+python -m itops.agent.run --config config\agent.yml --policies config\policies.yml --no-jitter --verbose
 ```
 
 ### 5. Scan Network
 
 ```powershell
-python -m ksl_itops.scanner.run --config config\scanner.yml --verbose
+python -m itops.scanner.run --config config\scanner.yml --verbose
 ```
 
 หรือกดปุ่ม **Scan Network** ใน Web UI
@@ -159,7 +159,7 @@ roles:
 ## Deploy Agent ด้วย Task Scheduler
 
 ```powershell
-schtasks /Create /TN "KSL_IT_Agent" /TR "python -m ksl_itops.agent.run --config C:\ksl_agent\config\agent.yml --policies C:\ksl_agent\config\policies.yml" /SC HOURLY /MO 4 /F
+schtasks /Create /TN "IT_Agent" /TR "python -m itops.agent.run --config C:\agent\config\agent.yml --policies C:\agent\config\policies.yml" /SC HOURLY /MO 4 /F
 ```
 
 ---
