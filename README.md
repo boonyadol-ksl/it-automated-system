@@ -1,4 +1,4 @@
-# KSL IT Automated System
+# IT Automated System
 
 ระบบ IT Operations อัตโนมัติสำหรับองค์กร รองรับหลาย VLAN  
 Built with **FastAPI + SQLite + HTMX + Tailwind CSS**
