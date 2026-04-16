@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Help Desk — KSL IT Ops{% endblock %}
+{% block page_title %}Help Desk{% endblock %}
+{% block page_sub %}จัดการ Ticket ทั้งหมด{% endblock %}
+
+{% block content %}
+<div class="flex gap-6">
+  <!-- Ticket List -->
+  <div class="flex-1 min-w-0">
+    <!-- Toolbar -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex flex-wrap gap-3 items-center">
+      <div class="flex gap-2">
+        {% for s, label in [('', 'ทั้งหมด'), ('open', 'Open'), ('in_progress', 'In Progress'), ('resolved', 'Resolved'), ('closed', 'Closed')] %}
+        <a href="/ui/tickets?status={{ s }}"
+           class="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
+             {% if selected_status == s %}bg-blue-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+          {{ label }}
+        </a>
+        {% endfor %}
+      </div>
+      <button onclick="document.getElementById('new-ticket-modal').classList.remove('hidden')"
+              class="ml-auto px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+        + สร้าง Ticket
+      </button>
+    </div>
+
+    <!-- Summary -->
+    <div class="grid grid-cols-4 gap-3 mb-4">
+      {% for label, val, color in [('Open', summary.by_status.open, 'blue'), ('In Progress', summary.by_status.in_progress, 'yellow'), ('Resolved', summary.by_status.resolved, 'green'), ('Critical', summary.by_priority.critical, 'red')] %}
+      <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+        <p class="text-2xl font-bold text-{{ color }}-600">{{ val }}</p>
+        <p class="text-xs text-slate-500">{{ label }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Tickets -->
+    <div class="space-y-2">
+      {% for t in tickets %}
+      <a href="/ui/tickets/{{ t.id }}"
+         class="bg-white rounded-xl border border-slate-200 p-4 flex items-center gap-4 hover:border-blue-300 hover:shadow-sm transition-all block">
+        <div class="w-1 self-stretch rounded-full shrink-0
+          {% if t.priority == 'critical' %}bg-red-500
+          {% elif t.priority == 'high' %}bg-orange-500
+          {% elif t.priority == 'medium' %}bg-yellow-500
+          {% else %}bg-slate-300{% endif %}"></div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm font-medium text-slate-800 truncate">{{ t.title }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full shrink-0
+              {% if t.status == 'open' %}bg-blue-100 text-blue-700
+              {% elif t.status == 'in_progress' %}bg-yellow-100 text-yellow-700
+              {% elif t.status == 'resolved' %}bg-green-100 text-green-700
+              {% else %}bg-slate-100 text-slate-600{% endif %}">
+              {{ t.status }}
+            </span>
+          </div>
+          <div class="flex items-center gap-3 text-xs text-slate-400">
+            <span>{{ t.reporter_name }}</span>
+            {% if t.hostname %}<span class="font-mono">{{ t.hostname }}</span>{% endif %}
+            <span>{{ t.category }}</span>
+            <span>{{ t.created_at[:10] }}</span>
+          </div>
+        </div>
+        <span class="text-xs px-2 py-1 rounded border shrink-0
+          {% if t.priority == 'critical' %}border-red-200 text-red-600
+          {% elif t.priority == 'high' %}border-orange-200 text-orange-600
+          {% elif t.priority == 'medium' %}border-yellow-200 text-yellow-600
+          {% else %}border-slate-200 text-slate-500{% endif %}">
+          {{ t.priority }}
+        </span>
+      </a>
+      {% else %}
+      <div class="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400">
+        ไม่มี Ticket
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- New Ticket Modal -->
+<div id="new-ticket-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-semibold">สร้าง Ticket ใหม่</h2>
+      <button onclick="document.getElementById('new-ticket-modal').classList.add('hidden')"
+              class="text-slate-400 hover:text-slate-600">✕</button>
+    </div>
+    <form id="new-ticket-form" class="space-y-4">
+      <input name="title" placeholder="หัวข้อปัญหา *" required
+             class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+      <textarea name="description" placeholder="รายละเอียดปัญหา *" rows="3" required
+                class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+      <div class="grid grid-cols-2 gap-3">
+        <input name="reporter_name" placeholder="ชื่อผู้แจ้ง *" required
+               class="border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        <input name="hostname" placeholder="Hostname (ถ้ามี)"
+               class="border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <select name="category" class="border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none">
+          <option value="hardware">Hardware</option>
+          <option value="software">Software</option>
+          <option value="network">Network</option>
+          <option value="account">Account</option>
+          <option value="printer">Printer</option>
+          <option value="other">Other</option>
+        </select>
+        <select name="priority" class="border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="document.getElementById('new-ticket-modal').classList.add('hidden')"
+                class="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm hover:bg-slate-50 transition-colors">ยกเลิก</button>
+        <button type="submit" class="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">สร้าง Ticket</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('new-ticket-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const body = Object.fromEntries(fd.entries());
+  const r = await fetch('/api/v1/tickets', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  if (r.ok) window.location.reload();
+});
+</script>
+{% endblock %}

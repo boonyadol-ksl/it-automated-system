@@ -1,0 +1,52 @@
+roles:
+  office_user:
+    required:
+      - "Microsoft Office"
+      - "Antivirus"
+      - "VPN Client"
+    optional:
+      - "Adobe Reader"
+      - "Chrome"
+      - "Firefox"
+    forbidden:
+      - "uTorrent"
+      - "TeamViewer"
+      - "AnyDesk"
+
+  accounting:
+    required:
+      - "Microsoft Office"
+      - "Antivirus"
+      - "ERP Client"
+      - "VPN Client"
+    optional:
+      - "Adobe Reader"
+    forbidden:
+      - "Games"
+      - "Social Media Apps"
+      - "USB Tools"
+
+  developer:
+    required:
+      - "Git"
+      - "VS Code"
+      - "Docker Desktop"
+    optional:
+      - "Postman"
+      - "Node.js"
+      - "Python"
+    forbidden:
+      - "Pirated Software"
+      - "Keygens"
+
+  production_pc:
+    required:
+      - "SCADA Client"
+      - "Antivirus"
+    optional: []
+    forbidden:
+      - "Games"
+      - "Social Media"
+      - "USB Tools"
+      - "Remote Desktop"
+

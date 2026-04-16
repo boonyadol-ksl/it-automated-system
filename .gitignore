@@ -1,0 +1,32 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Data & DB
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Config จริง (มี credentials) — ใช้ *.example แทน
+config/server.env
+config/agent.yml
+config/network_segments.yml
+config/scanner.yml
+
+# Test output
+test_report.pdf
+bios_test.txt
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

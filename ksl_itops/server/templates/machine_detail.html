@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% block title %}{{ hostname }} — KSL IT Ops{% endblock %}
+{% block page_title %}{{ hostname }}{% endblock %}
+{% block page_sub %}{{ asset.ip }} · {{ asset.network_segment }} · {{ asset.role }}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+  <!-- Left: Info -->
+  <div class="xl:col-span-2 space-y-5">
+
+    <!-- Compliance Banner -->
+    {% set status = analysis.status %}
+    <div class="rounded-xl p-4 flex items-center gap-4
+      {% if status == 'healthy' %}bg-green-50 border border-green-200
+      {% elif status == 'warning' %}bg-yellow-50 border border-yellow-200
+      {% else %}bg-red-50 border border-red-200{% endif %}">
+      <div class="text-4xl font-bold
+        {% if status == 'healthy' %}text-green-600{% elif status == 'warning' %}text-yellow-600{% else %}text-red-600{% endif %}">
+        {{ analysis.compliance_score }}
+      </div>
+      <div>
+        <p class="font-semibold
+          {% if status == 'healthy' %}text-green-700{% elif status == 'warning' %}text-yellow-700{% else %}text-red-700{% endif %}">
+          Compliance Score · {{ status|upper }}
+        </p>
+        <p class="text-sm text-slate-500">{{ analysis.summary }}</p>
+      </div>
+      <a href="/api/v1/machine/{{ hostname }}/report" target="_blank"
+         class="ml-auto px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        PDF Report
+      </a>
+    </div>
+
+    <!-- Asset Info -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-4">ข้อมูลเครื่อง</h3>
+      <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+        {% for label, value in [
+          ('Hostname', asset.hostname), ('IP Address', asset.ip),
+          ('OS', asset.os), ('CPU', asset.cpu),
+          ('RAM', (asset.ram_gb|string) + ' GB'), ('Disk', (asset.disk_total_gb|string) + ' GB (ว่าง ' + (asset.disk_free_gb|string) + ' GB)'),
+          ('BIOS Date', asset.bios_date or '-'), ('Network Segment', asset.network_segment),
+          ('Role', asset.role), ('Last Seen', (asset.last_seen or '')[:19]),
+        ] %}
+        <div class="flex gap-2">
+          <span class="text-slate-400 w-28 shrink-0">{{ label }}</span>
+          <span class="font-medium text-slate-700 break-all">{{ value }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Checklist -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-4">รายการตรวจสอบ</h3>
+      <div class="grid grid-cols-2 gap-3">
+        {% set checks = [
+          ('Antivirus', checklist.antivirus, checklist.antivirus and 'installed' in checklist.antivirus),
+          ('Admin Rights', 'มีสิทธิ์ Admin' if checklist.admin_rights else 'ไม่มีสิทธิ์ Admin', not checklist.admin_rights),
+          ('Internet Access', 'ใช้งานได้' if checklist.internet_access else 'ใช้งานไม่ได้', checklist.internet_access),
+          ('WMI Service', checklist.wmi_service, checklist.wmi_service == 'running'),
+          ('VNC Status', checklist.vnc_status, checklist.vnc_status == 'not_installed'),
+          ('Disk Cleanup', 'ปกติ' if checklist.disk_cleanup else 'ต้องทำความสะอาด', checklist.disk_cleanup),
+        ] %}
+        {% for label, value, ok in checks %}
+        <div class="flex items-center justify-between p-3 rounded-lg
+          {% if ok %}bg-green-50{% else %}bg-red-50{% endif %}">
+          <span class="text-sm text-slate-600">{{ label }}</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs {% if ok %}text-green-700{% else %}text-red-700{% endif %}">{{ value }}</span>
+            <div class="w-4 h-4 rounded-full flex items-center justify-center
+              {% if ok %}bg-green-500{% else %}bg-red-500{% endif %}">
+              <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {% if ok %}
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                {% else %}
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                {% endif %}
+              </svg>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-4">Performance Metrics</h3>
+      <div class="space-y-4">
+        {% for label, value in [('CPU Usage', metrics.cpu_usage), ('RAM Usage', metrics.ram_usage), ('Disk Usage', metrics.disk_usage_percent)] %}
+        <div>
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-slate-500">{{ label }}</span>
+            <span class="font-medium {% if value > 85 %}text-red-600{% elif value > 70 %}text-yellow-600{% else %}text-green-600{% endif %}">
+              {{ value }}%
+            </span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2">
+            <div class="h-2 rounded-full transition-all
+              {% if value > 85 %}bg-red-500{% elif value > 70 %}bg-yellow-500{% else %}bg-green-500{% endif %}"
+                 style="width:{{ value }}%"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Issues -->
+    {% if analysis.issues %}
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-4">ปัญหาที่ตรวจพบ ({{ analysis.issues|length }})</h3>
+      <div class="space-y-3">
+        {% for issue in analysis.issues %}
+        <div class="p-4 rounded-lg border
+          {% if issue.severity == 'critical' %}bg-red-50 border-red-200
+          {% elif issue.severity == 'high' %}bg-orange-50 border-orange-200
+          {% elif issue.severity == 'medium' %}bg-yellow-50 border-yellow-200
+          {% else %}bg-slate-50 border-slate-200{% endif %}">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold uppercase px-2 py-0.5 rounded
+                  {% if issue.severity == 'critical' %}bg-red-200 text-red-800
+                  {% elif issue.severity == 'high' %}bg-orange-200 text-orange-800
+                  {% elif issue.severity == 'medium' %}bg-yellow-200 text-yellow-800
+                  {% else %}bg-slate-200 text-slate-700{% endif %}">
+                  {{ issue.severity }}
+                </span>
+                <span class="text-xs text-slate-500">{{ issue.type }}</span>
+              </div>
+              <p class="text-sm font-medium text-slate-700">{{ issue.description }}</p>
+              <p class="text-xs text-slate-500 mt-1">💡 {{ issue.recommendation }}</p>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Software -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-4">Licensed Software ({{ licensed_software|length }} รายการ)</h3>
+      <div class="flex flex-wrap gap-2">
+        {% for sw in licensed_software %}
+        <span class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs">{{ sw }}</span>
+        {% else %}
+        <p class="text-sm text-slate-400">ไม่มีข้อมูล</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Command Panel -->
+  <div class="space-y-5">
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5" x-data="{ result: null, loading: false }">
+      <h3 class="font-semibold text-slate-700 mb-4">Quick Actions</h3>
+      <div class="space-y-2">
+        {% set actions = [
+          ('clear_temp', '🧹 Clear Temp Files', 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'),
+          ('check_software', '📦 Check Software', 'bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200'),
+          ('check_disk', '💾 Check Disk', 'bg-green-50 hover:bg-green-100 text-green-700 border-green-200'),
+          ('check_antivirus', '🛡️ Check Antivirus', 'bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200'),
+        ] %}
+        {% for action, label, cls in actions %}
+        <button @click="sendCommand('{{ action }}')"
+                class="w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-colors {{ cls }}">
+          {{ label }}
+        </button>
+        {% endfor %}
+      </div>
+
+      <!-- Kill Process -->
+      <div class="mt-3 flex gap-2">
+        <input type="text" x-model="procName" placeholder="ชื่อ process..."
+               class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"/>
+        <button @click="sendCommand('kill_process', {name: procName})"
+                class="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-sm font-medium transition-colors">
+          Kill
+        </button>
+      </div>
+
+      <!-- Restart Service -->
+      <div class="mt-2 flex gap-2">
+        <input type="text" x-model="svcName" placeholder="ชื่อ service..."
+               class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"/>
+        <button @click="sendCommand('restart_service', {name: svcName})"
+                class="px-3 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg text-sm font-medium transition-colors">
+          Restart
+        </button>
+      </div>
+
+      <!-- Result -->
+      <div x-show="result" x-cloak class="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+        <p class="text-xs font-mono text-slate-600 break-all" x-text="result"></p>
+      </div>
+      <div x-show="loading" x-cloak class="mt-3 flex items-center gap-2 text-xs text-slate-400">
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+        </svg>
+        กำลังส่ง command...
+      </div>
+    </div>
+
+    <!-- Create Ticket -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5" x-data="{ open: false, title:'', desc:'', cat:'hardware', pri:'medium', done:false }">
+      <button @click="open = !open" class="w-full flex items-center justify-between">
+        <h3 class="font-semibold text-slate-700">สร้าง Ticket</h3>
+        <svg class="w-4 h-4 text-slate-400 transition-transform" :class="open && 'rotate-180'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      <div x-show="open" x-cloak class="mt-4 space-y-3">
+        <input x-model="title" placeholder="หัวข้อปัญหา" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        <textarea x-model="desc" placeholder="รายละเอียด" rows="3" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"></textarea>
+        <div class="grid grid-cols-2 gap-2">
+          <select x-model="cat" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none">
+            <option value="hardware">Hardware</option>
+            <option value="software">Software</option>
+            <option value="network">Network</option>
+            <option value="account">Account</option>
+            <option value="other">Other</option>
+          </select>
+          <select x-model="pri" class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+        <button @click="createTicket()" class="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+          สร้าง Ticket
+        </button>
+        <p x-show="done" x-cloak class="text-xs text-green-600 text-center">✓ สร้าง Ticket สำเร็จ</p>
+      </div>
+    </div>
+
+    <!-- Command History -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-4">Command History</h3>
+      <div class="space-y-2" id="cmd-history"
+           hx-get="/ui/machines/{{ hostname }}/commands" hx-trigger="load, every 10s">
+        <p class="text-xs text-slate-400 text-center py-2">กำลังโหลด...</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API_KEY = '{{ api_key }}';
+const HOSTNAME = '{{ hostname }}';
+
+async function sendCommand(action, params = {}) {
+  const comp = document.querySelector('[x-data]').__x.$data;
+  // find alpine component
+  const el = document.querySelector('[x-data*="result"]');
+  const alpine = el._x_dataStack[0];
+  alpine.loading = true;
+  alpine.result = null;
+  try {
+    const r = await fetch(`/api/v1/machine/${HOSTNAME}/command`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+      body: JSON.stringify({ action, params })
+    });
+    const data = await r.json();
+    alpine.result = r.ok ? `✓ Queued: ${action} (id=${data.command_id}) — จะรันครั้งถัดไปที่ agent เช็ค` : `✗ ${JSON.stringify(data)}`;
+  } catch(e) {
+    alpine.result = '✗ ' + e.message;
+  }
+  alpine.loading = false;
+}
+
+async function createTicket() {
+  const el = document.querySelectorAll('[x-data]');
+  let alpine;
+  el.forEach(e => { if (e._x_dataStack && e._x_dataStack[0].title !== undefined) alpine = e._x_dataStack[0]; });
+  if (!alpine || !alpine.title) return;
+  const r = await fetch('/api/v1/tickets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: alpine.title, description: alpine.desc, category: alpine.cat, priority: alpine.pri, reporter_name: 'IT Admin', hostname: HOSTNAME })
+  });
+  if (r.ok) { alpine.done = true; alpine.title = ''; alpine.desc = ''; setTimeout(() => alpine.done = false, 3000); }
+}
+</script>
+{% endblock %}

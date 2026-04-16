@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}{{ hostname }} — KSL IT Ops{% endblock %}
+{% block page_title %}{{ hostname }}{% endblock %}
+{% block page_sub %}{{ scan.ip }} · {{ scan.network_segment }} · ไม่มี Agent{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+  <div class="xl:col-span-2 space-y-5">
+
+    <!-- No Agent Banner -->
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+      <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+      </svg>
+      <p class="text-sm text-amber-800">เครื่องนี้พบจาก Network Scan เท่านั้น — ใช้ <strong>WMI Collect</strong> เพื่อดึงข้อมูลโดยไม่ต้องติดตั้ง agent</p>
+    </div>
+
+    <!-- WMI Data (if collected) -->
+    {% if wmi %}
+    {% set asset = wmi.asset %}
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-slate-700">ข้อมูลเครื่อง (WMI)</h3>
+        <span class="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">✓ เก็บข้อมูลแล้ว</span>
+      </div>
+      <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+        {% for label, value in [
+          ('Hostname', asset.hostname), ('IP', asset.ip),
+          ('OS', asset.os), ('CPU', asset.cpu),
+          ('CPU Cores', asset.cpu_cores), ('RAM', (asset.ram_gb|string) + ' GB'),
+          ('Disk Total', (asset.disk_total_gb|string) + ' GB'), ('Disk Free', (asset.disk_free_gb|string) + ' GB'),
+          ('BIOS Date', asset.bios_date), ('Last User', asset.last_user),
+          ('Last Boot', (asset.last_boot or '-')[:12]),
+        ] %}
+        <div class="flex gap-2">
+          <span class="text-slate-400 w-24 shrink-0 text-xs">{{ label }}</span>
+          <span class="font-medium text-slate-700 text-xs break-all">{{ value }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Installed Software -->
+    {% if wmi.installed_software %}
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-3">Software ที่ติดตั้ง ({{ wmi.installed_software|length }} รายการ)</h3>
+      <div class="flex flex-wrap gap-2">
+        {% for sw in wmi.installed_software %}
+        <span class="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs">{{ sw }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Scan Info only -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-4">ข้อมูลจาก Network Scan</h3>
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        {% for label, value in [('IP Address', scan.ip), ('Segment', scan.network_segment), ('Scanned', (scan.scanned_at or '')[:16])] %}
+        <div>
+          <p class="text-xs text-slate-400">{{ label }}</p>
+          <p class="font-medium text-slate-700">{{ value }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Open Ports -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-3">Open Ports</h3>
+      <div class="flex flex-wrap gap-2">
+        {% for port, svc in scan.services.items() %}
+        <span class="px-3 py-1.5 rounded-lg text-sm font-medium border
+          {% if svc == 'VNC' or svc == 'RDP' %}bg-orange-50 border-orange-200 text-orange-700
+          {% elif svc == 'SMB' %}bg-blue-50 border-blue-200 text-blue-700
+          {% else %}bg-slate-50 border-slate-200 text-slate-600{% endif %}">
+          {{ port }} · {{ svc }}
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right Panel -->
+  <div class="space-y-5">
+
+    <!-- WMI Collect -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5"
+         x-data="{ user: '', password: '', loading: false, result: null, error: null }">
+      <h3 class="font-semibold text-slate-700 mb-1">WMI Collect</h3>
+      <p class="text-xs text-slate-400 mb-4">ดึงข้อมูลเครื่องผ่าน WMI โดยไม่ต้องติดตั้ง agent<br>ต้องการ domain admin หรือ local admin</p>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">Domain\Username</label>
+          <input x-model="user" placeholder="DOMAIN\administrator"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 mb-1 block">Password</label>
+          <input x-model="password" type="password"
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        </div>
+        <button @click="collectWmi()" :disabled="loading"
+                class="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
+          <svg x-show="loading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          <span x-text="loading ? 'กำลังเก็บข้อมูล...' : '🔍 Collect via WMI'"></span>
+        </button>
+        <div x-show="result" x-cloak class="p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-700" x-text="result"></div>
+        <div x-show="error" x-cloak class="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700" x-text="error"></div>
+      </div>
+    </div>
+
+    <!-- Scan Again -->
+    <div class="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 class="font-semibold text-slate-700 mb-3">ข้อมูล Scan</h3>
+      <div class="text-xs text-slate-500 space-y-1">
+        <p>IP: <span class="font-mono font-medium text-slate-700">{{ scan.ip }}</span></p>
+        <p>Segment: <span class="font-medium text-slate-700">{{ scan.network_segment }}</span></p>
+        <p>Last scan: {{ (scan.scanned_at or '')[:16] }}</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API_KEY = '{{ api_key }}';
+const HOSTNAME = '{{ hostname }}';
+const IP = '{{ scan.ip }}';
+
+async function collectWmi() {
+  const el = document.querySelector('[x-data*="user"]');
+  const d = el._x_dataStack[0];
+  if (!d.user || !d.password) { d.error = 'กรุณากรอก username และ password'; return; }
+  d.loading = true; d.result = null; d.error = null;
+  try {
+    const r = await fetch(`/api/v1/machine/${HOSTNAME}/wmi-collect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+      body: JSON.stringify({ ip: IP, user: d.user, password: d.password })
+    });
+    const data = await r.json();
+    if (r.ok) {
+      d.result = '✓ เก็บข้อมูลสำเร็จ กำลัง reload...';
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      d.error = '✗ ' + (data.detail || JSON.stringify(data));
+    }
+  } catch(e) {
+    d.error = '✗ ' + e.message;
+  }
+  d.loading = false;
+}
+</script>
+{% endblock %}

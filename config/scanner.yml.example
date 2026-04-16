@@ -1,0 +1,36 @@
+# KSL Network Scanner Config
+
+# Network segments to scan
+segments:
+  - name: "10.7.10.x"
+    cidr: "10.7.10.0/24"
+  - name: "10.7.20.x"
+    cidr: "10.7.20.0/24"
+
+# Concurrent scan workers (higher = faster but more network load)
+max_workers: 50
+
+# Report results to central server
+server:
+  base_url: "http://127.0.0.1:8800"
+  api_key: "kslict@np1234"
+
+# Auto-deploy agent to discovered machines
+deploy:
+  enabled: false          # set true to auto-deploy
+
+  # "wmi"    = trigger via WMIC (agent already installed, just run it)
+  # "psexec" = copy files + register Task Scheduler (first-time deploy)
+  method: "wmi"
+
+  domain_user: "DOMAIN\\administrator"
+  domain_password: "change-me"
+
+  # Path on REMOTE machine
+  python_exe: "C:\\ksl_agent\\.venv\\Scripts\\python.exe"
+  agent_dir: "C:\\ksl_agent"
+  config_path: "C:\\ksl_agent\\config\\agent.yml"
+  policies_path: "C:\\ksl_agent\\config\\policies.yml"
+
+  # Only for psexec method: path on THIS machine to copy from
+  agent_source_dir: "."

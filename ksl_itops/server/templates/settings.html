@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Settings — KSL IT Ops{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block page_sub %}ตั้งค่าระบบทั้งหมดผ่าน UI{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6" x-data="{ saved: '' }">
+
+  <!-- Server Config -->
+  <div class="bg-white rounded-xl border border-slate-200 p-6">
+    <h3 class="font-semibold text-slate-700 mb-1">Server Config</h3>
+    <p class="text-xs text-slate-400 mb-4">config/server.env</p>
+    <form class="space-y-4" @submit.prevent="saveConfig('server', $el)">
+      {% for key, value in server_config.items() %}
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">{{ key }}</label>
+        <input name="{{ key }}" value="{{ value }}"
+               type="{{ 'password' if 'KEY' in key or 'PASSWORD' in key else 'text' }}"
+               class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+      </div>
+      {% endfor %}
+      <button type="submit" class="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+        บันทึก Server Config
+      </button>
+    </form>
+  </div>
+
+  <!-- Agent Config -->
+  <div class="bg-white rounded-xl border border-slate-200 p-6">
+    <h3 class="font-semibold text-slate-700 mb-1">Agent Config</h3>
+    <p class="text-xs text-slate-400 mb-4">config/agent.yml</p>
+    <form class="space-y-4" @submit.prevent="saveConfig('agent', $el)">
+      {% for key, value in agent_config.items() %}
+      <div>
+        <label class="block text-xs font-medium text-slate-500 mb-1">{{ key }}</label>
+        <input name="{{ key }}" value="{{ value }}"
+               type="{{ 'password' if 'key' in key.lower() or 'password' in key.lower() else 'text' }}"
+               class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+      </div>
+      {% endfor %}
+      <button type="submit" class="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+        บันทึก Agent Config
+      </button>
+    </form>
+  </div>
+
+  <!-- Policies -->
+  <div class="bg-white rounded-xl border border-slate-200 p-6 lg:col-span-2">
+    <h3 class="font-semibold text-slate-700 mb-1">Software Policies</h3>
+    <p class="text-xs text-slate-400 mb-4">config/policies.yml — กำหนด required/forbidden software ต่อ role</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      {% for role, policy in policies.items() %}
+      <div class="border border-slate-200 rounded-xl p-4">
+        <h4 class="font-medium text-slate-700 mb-3 capitalize">{{ role }}</h4>
+        <div class="space-y-3">
+          {% for ptype, color in [('required', 'green'), ('optional', 'blue'), ('forbidden', 'red')] %}
+          <div>
+            <p class="text-xs font-medium text-{{ color }}-600 mb-1 uppercase">{{ ptype }}</p>
+            <div class="flex flex-wrap gap-1">
+              {% for sw in policy.get(ptype, []) %}
+              <span class="px-2 py-0.5 bg-{{ color }}-50 text-{{ color }}-700 rounded text-xs">{{ sw }}</span>
+              {% else %}
+              <span class="text-xs text-slate-300">-</span>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-4">
+      <textarea id="policies-yaml" rows="12"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{ policies_raw }}</textarea>
+      <button onclick="savePolicies()" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+        บันทึก Policies
+      </button>
+    </div>
+  </div>
+
+  <!-- Network Segments -->
+  <div class="bg-white rounded-xl border border-slate-200 p-6 lg:col-span-2">
+    <h3 class="font-semibold text-slate-700 mb-1">Network Segments</h3>
+    <p class="text-xs text-slate-400 mb-4">config/network_segments.yml</p>
+    <textarea id="segments-yaml" rows="8"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none">{{ segments_raw }}</textarea>
+    <button onclick="saveSegments()" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+      บันทึก Segments
+    </button>
+  </div>
+
+  <!-- Save notification -->
+  <div x-show="saved" x-cloak x-transition
+       class="fixed bottom-6 right-6 bg-green-600 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium">
+    ✓ <span x-text="saved"></span>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function saveConfig(type, form) {
+  const fd = new FormData(form);
+  const data = Object.fromEntries(fd.entries());
+  const r = await fetch(`/ui/settings/save/${type}`, {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  if (r.ok) showSaved('บันทึกสำเร็จ');
+}
+
+async function savePolicies() {
+  const yaml = document.getElementById('policies-yaml').value;
+  const r = await fetch('/ui/settings/save/policies', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ yaml })
+  });
+  if (r.ok) showSaved('บันทึก Policies สำเร็จ');
+}
+
+async function saveSegments() {
+  const yaml = document.getElementById('segments-yaml').value;
+  const r = await fetch('/ui/settings/save/segments', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ yaml })
+  });
+  if (r.ok) showSaved('บันทึก Segments สำเร็จ');
+}
+
+function showSaved(msg) {
+  const el = document.querySelector('[x-data]');
+  el._x_dataStack[0].saved = msg;
+  setTimeout(() => el._x_dataStack[0].saved = '', 3000);
+}
+</script>
+{% endblock %}

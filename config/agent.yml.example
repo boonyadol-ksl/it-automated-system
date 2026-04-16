@@ -1,0 +1,15 @@
+api:
+  base_url: "http://127.0.0.1:8000"
+  api_key: "change-me"
+  timeout_seconds: 30
+
+schedule:
+  interval_seconds: 14400   # 4 hours
+  jitter_seconds: 300       # 0-5 minutes
+
+asset:
+  role: "office_user"
+  # ตั้งเป็นค่า string ตายตัวก็ได้ เช่น "10.7.30.x"
+  # หรือใช้ "auto" แล้วให้ agent จับจาก IP ด้วยไฟล์ segments map ด้านล่าง
+  network_segment: "auto"
+  network_segments_file: "config/network_segments.yml"

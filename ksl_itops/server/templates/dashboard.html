@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — KSL IT Ops{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_sub %}ภาพรวมระบบ IT ทั้งหมด{% endblock %}
+
+{% block content %}
+<!-- Stat Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  {% set cards = [
+    (total_machines, 'เครื่องที่มี Agent', '#3b82f6', 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2'),
+    (online_machines, 'Online (Scan)', '#10b981', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'),
+    (open_tickets, 'Tickets เปิดอยู่', '#f59e0b', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'),
+    (critical_machines, 'Critical Issues', '#ef4444', 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'),
+  ] %}
+  {% for value, label, color, icon in cards %}
+  <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-4">
+    <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style="background:{{ color }}20">
+      <svg class="w-6 h-6" style="color:{{ color }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ icon }}"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-2xl font-bold text-slate-800">{{ value }}</p>
+      <p class="text-xs text-slate-500">{{ label }}</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Segments with detail -->
+  <div class="bg-white rounded-xl border border-slate-200 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-slate-700">Network Segments</h2>
+      <div class="flex gap-3">
+        <a href="/ui/scan" class="text-xs text-blue-500 hover:underline">Scan →</a>
+        <a href="/ui/settings" class="text-xs text-slate-400 hover:underline">+ VLAN</a>
+      </div>
+    </div>
+    <div class="space-y-2">
+      {% for seg in seg_summary %}
+      {% set pct = ((seg.online / seg.total_scan * 100) | int) if seg.total_scan > 0 else 0 %}
+      <div class="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+        <!-- Status dot -->
+        <div class="w-2 h-2 rounded-full shrink-0 {% if seg.online > 0 %}bg-green-400{% else %}bg-slate-300{% endif %}"></div>
+        <!-- Segment name -->
+        <span class="text-sm font-mono font-medium w-28 shrink-0">{{ seg.network_segment }}</span>
+        <!-- Mini stats -->
+        <div class="flex gap-3 text-xs">
+          <span class="text-green-600 font-medium">{{ seg.online }} online</span>
+          <span class="text-slate-400">{{ seg.offline }} off</span>
+          {% if seg.has_agent %}<span class="text-blue-500">{{ seg.has_agent }} agent</span>{% endif %}
+        </div>
+        <!-- Progress -->
+        {% if seg.total_scan > 0 %}
+        <div class="flex-1 bg-slate-200 rounded-full h-1.5 min-w-0">
+          <div class="h-1.5 bg-green-500 rounded-full" style="width:{{ pct }}%"></div>
+        </div>
+        <span class="text-xs text-slate-400 shrink-0 w-8 text-right">{{ pct }}%</span>
+        {% else %}
+        <span class="text-xs text-slate-300 flex-1">ยังไม่ได้ scan</span>
+        {% endif %}
+        <!-- Link -->
+        <a href="/ui/machines?segment={{ seg.network_segment }}"
+           class="text-xs text-blue-500 hover:underline shrink-0">ดู</a>
+      </div>
+      {% else %}
+      <div class="text-center py-6">
+        <p class="text-sm text-slate-400 mb-2">ยังไม่มีข้อมูล</p>
+        <a href="/ui/settings" class="text-xs text-blue-500 hover:underline">+ เพิ่ม VLAN</a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Recent Tickets -->
+  <div class="bg-white rounded-xl border border-slate-200 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-slate-700">Tickets ล่าสุด</h2>
+      <a href="/ui/tickets" class="text-xs text-blue-500 hover:underline">ดูทั้งหมด →</a>
+    </div>
+    <div class="space-y-2">
+      {% for t in recent_tickets %}
+      <a href="/ui/tickets/{{ t.id }}"
+         class="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors block">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-1 h-8 rounded-full shrink-0
+            {% if t.priority == 'critical' %}bg-red-500
+            {% elif t.priority == 'high' %}bg-orange-500
+            {% elif t.priority == 'medium' %}bg-yellow-500
+            {% else %}bg-slate-300{% endif %}"></div>
+          <div class="min-w-0">
+            <p class="text-sm font-medium truncate">{{ t.title }}</p>
+            <p class="text-xs text-slate-400">{{ t.reporter_name }} · {{ t.category }}</p>
+          </div>
+        </div>
+        <span class="text-xs px-2 py-0.5 rounded-full shrink-0 ml-2
+          {% if t.status == 'open' %}bg-blue-100 text-blue-700
+          {% elif t.status == 'in_progress' %}bg-yellow-100 text-yellow-700
+          {% elif t.status == 'resolved' %}bg-green-100 text-green-700
+          {% else %}bg-slate-100 text-slate-600{% endif %}">
+          {{ t.status }}
+        </span>
+      </a>
+      {% else %}
+      <p class="text-sm text-slate-400 text-center py-4">ไม่มี ticket ที่เปิดอยู่</p>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

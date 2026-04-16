@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Machines — KSL IT Ops{% endblock %}
+{% block page_title %}Machines{% endblock %}
+{% block page_sub %}รายชื่อเครื่องคอมพิวเตอร์ทั้งหมด{% endblock %}
+
+{% block content %}
+<!-- Filter Bar -->
+<div class="bg-white rounded-xl border border-slate-200 p-4 mb-5 flex flex-wrap gap-3 items-center">
+  <input type="text" id="search" placeholder="ค้นหา hostname..."
+         class="border border-slate-200 rounded-lg px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-blue-500"
+         oninput="filterTable()"/>
+  <select id="seg-filter" onchange="filterTable()"
+          class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <option value="">ทุก Segment</option>
+    {% for seg in segments %}
+    <option value="{{ seg }}" {% if selected_segment == seg %}selected{% endif %}>{{ seg }}</option>
+    {% endfor %}
+  </select>
+  <span class="text-xs text-slate-400 ml-auto" id="count-label">{{ machines|length }} เครื่อง</span>
+</div>
+
+<!-- Table -->
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  <table class="w-full text-sm" id="machines-table">
+    <thead class="bg-slate-50 border-b border-slate-200">
+      <tr>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Hostname</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">IP</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Segment</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Role</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">OS</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Compliance</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Last Seen</th>
+        <th class="px-4 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for m in machines %}
+      {% set score = m.compliance_score %}
+      <tr class="hover:bg-slate-50 transition-colors machine-row"
+          data-hostname="{{ m.hostname|lower }}" data-segment="{{ m.segment }}">
+        <td class="px-4 py-3 font-mono font-medium text-slate-800">{{ m.hostname }}</td>
+        <td class="px-4 py-3 text-slate-500 font-mono text-xs">{{ m.ip }}</td>
+        <td class="px-4 py-3">
+          <span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">{{ m.segment }}</span>
+        </td>
+        <td class="px-4 py-3 text-slate-500 text-xs">{{ m.role }}</td>
+        <td class="px-4 py-3 text-slate-500 text-xs">{{ m.os }}</td>
+        <td class="px-4 py-3">
+          <div class="flex items-center gap-2">
+            {% if m.compliance_score is not none %}
+            <div class="w-20 bg-slate-100 rounded-full h-1.5">
+              <div class="h-1.5 rounded-full
+                {% if m.compliance_score >= 80 %}bg-green-500{% elif m.compliance_score >= 50 %}bg-yellow-500{% else %}bg-red-500{% endif %}"
+                   style="width:{{ m.compliance_score }}%"></div>
+            </div>
+            <span class="text-xs font-medium
+              {% if m.compliance_score >= 80 %}text-green-600{% elif m.compliance_score >= 50 %}text-yellow-600{% else %}text-red-600{% endif %}">
+              {{ m.compliance_score }}
+            </span>
+            {% else %}
+            <span class="text-xs px-2 py-0.5 bg-slate-100 text-slate-400 rounded">ยังไม่มี agent</span>
+            {% endif %}
+          </div>
+        </td>
+        <td class="px-4 py-3 text-slate-400 text-xs">{{ m.last_seen[:16] if m.last_seen else '-' }}</td>
+        <td class="px-4 py-3">
+          <a href="/ui/machines/{{ m.hostname }}"
+             class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-colors">
+            รายละเอียด
+          </a>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-4 py-12 text-center text-slate-400">ยังไม่มีข้อมูล — รัน agent ก่อน</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterTable() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const seg = document.getElementById('seg-filter').value;
+  let visible = 0;
+  document.querySelectorAll('.machine-row').forEach(row => {
+    const matchQ = !q || row.dataset.hostname.includes(q);
+    const matchSeg = !seg || row.dataset.segment === seg;
+    row.style.display = (matchQ && matchSeg) ? '' : 'none';
+    if (matchQ && matchSeg) visible++;
+  });
+  document.getElementById('count-label').textContent = visible + ' เครื่อง';
+}
+</script>
+{% endblock %}

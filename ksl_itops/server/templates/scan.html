@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Network Scan — KSL IT Ops{% endblock %}
+{% block page_title %}Network Scan{% endblock %}
+{% block page_sub %}ผลการ scan เครื่องในแต่ละ VLAN{% endblock %}
+
+{% block content %}
+<!-- Scan Button -->
+<div class="bg-white rounded-xl border border-slate-200 p-4 mb-5 flex items-center gap-4"
+     x-data="{ loading: false, msg: '', last: '' }"
+     x-init="fetchStatus()">
+  <button @click="startScan()"
+          :disabled="loading"
+          class="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+    <svg x-show="loading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+    </svg>
+    <span x-text="loading ? 'กำลัง Scan...' : '🔍 Scan Network'"></span>
+  </button>
+  <div class="text-sm text-slate-500">
+    <span x-show="msg" x-text="msg"></span>
+    <span x-show="last && !msg" class="text-xs text-slate-400">Scan ล่าสุด: <span x-text="last"></span></span>
+  </div>
+</div>
+<!-- Summary Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  {% for seg in summary %}
+  <div class="bg-white rounded-xl border border-slate-200 p-4">
+    <p class="text-xs font-mono text-blue-600 font-medium mb-2">{{ seg.network_segment }}</p>
+    <div class="grid grid-cols-2 gap-2 text-center">
+      <div class="bg-green-50 rounded-lg p-2">
+        <p class="text-xl font-bold text-green-600">{{ seg.online }}</p>
+        <p class="text-xs text-slate-500">Online</p>
+      </div>
+      <div class="bg-slate-50 rounded-lg p-2">
+        <p class="text-xl font-bold text-slate-400">{{ seg.offline }}</p>
+        <p class="text-xs text-slate-500">Offline</p>
+      </div>
+    </div>
+    <div class="flex justify-between mt-2 text-xs text-slate-400">
+      <span>RDP: {{ seg.has_rdp }}</span>
+      <span>VNC: {{ seg.has_vnc }}</span>
+      <span>Other: {{ seg.no_hostname }}</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Filter -->
+<div class="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex gap-3 items-center">
+  <select id="seg-filter" onchange="filterScan()"
+          class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <option value="">ทุก Segment</option>
+    {% for seg in summary %}
+    <option value="{{ seg.network_segment }}">{{ seg.network_segment }}</option>
+    {% endfor %}
+  </select>
+  <select id="status-filter" onchange="filterScan()"
+          class="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+    <option value="online" selected>Windows PC เท่านั้น</option>
+    <option value="">ทุกสถานะ</option>
+    <option value="no_hostname">Online (อื่นๆ)</option>
+    <option value="offline">Offline</option>
+  </select>
+  <span class="text-xs text-slate-400 ml-auto" id="scan-count">{{ results|length }} รายการ</span>
+</div>
+
+<!-- Table -->
+<div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  <table class="w-full text-sm" id="scan-table">
+    <thead class="bg-slate-50 border-b border-slate-200">
+      <tr>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">IP</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Hostname</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Segment</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Open Ports</th>
+        <th class="text-left px-4 py-3 font-medium text-slate-600">Scanned</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for r in results %}
+      <tr class="hover:bg-slate-50 scan-row" data-segment="{{ r.network_segment }}" data-status="{{ r.status }}">
+        <td class="px-4 py-3 font-mono text-xs text-slate-600">{{ r.ip }}</td>
+        <td class="px-4 py-3 font-mono font-medium">
+          {% if r.hostname %}
+          <a href="/ui/machines/{{ r.hostname }}" class="text-blue-600 hover:underline">{{ r.hostname }}</a>
+          {% else %}-{% endif %}
+        </td>
+        <td class="px-4 py-3"><span class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">{{ r.network_segment }}</span></td>
+        <td class="px-4 py-3">
+          <span class="px-2 py-0.5 rounded-full text-xs font-medium
+            {% if r.status == 'online' %}bg-green-100 text-green-700
+            {% elif r.status == 'no_hostname' %}bg-yellow-100 text-yellow-700
+            {% else %}bg-slate-100 text-slate-500{% endif %}">
+            {{ r.status }}
+          </span>
+        </td>
+        <td class="px-4 py-3 text-xs text-slate-500">
+          {% for port, svc in r.services.items() %}
+          <span class="inline-block px-1.5 py-0.5 bg-slate-100 rounded mr-1 mb-1
+            {% if svc == 'VNC' or svc == 'RDP' %}bg-orange-100 text-orange-700{% endif %}">
+            {{ svc }}
+          </span>
+          {% endfor %}
+        </td>
+        <td class="px-4 py-3 text-xs text-slate-400">{{ r.scanned_at[:16] if r.scanned_at else '-' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="px-4 py-12 text-center text-slate-400">ยังไม่มีข้อมูล — รัน scanner ก่อน</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API_KEY = '{{ api_key if api_key is defined else "" }}';
+
+async function startScan() {
+  const el = document.querySelector('[x-data*="loading"]');
+  const d = el._x_dataStack[0];
+  d.loading = true; d.msg = 'กำลังเริ่ม scan...';
+  try {
+    const r = await fetch('/api/v1/scan/start', {
+      method: 'POST',
+      headers: { 'X-API-Key': API_KEY }
+    });
+    const data = await r.json();
+    if (r.ok) {
+      d.msg = `Scanning ${data.segments} segment(s)...`;
+      pollStatus(d);
+    } else {
+      d.msg = '✗ ' + (data.detail || JSON.stringify(data));
+      d.loading = false;
+    }
+  } catch(e) {
+    d.msg = '✗ ' + e.message;
+    d.loading = false;
+  }
+}
+
+async function fetchStatus() {
+  const el = document.querySelector('[x-data*="loading"]');
+  if (!el) return;
+  const d = el._x_dataStack[0];
+  const r = await fetch('/api/v1/scan/status');
+  const data = await r.json();
+  if (data.running) { d.loading = true; d.msg = 'กำลัง Scan...'; pollStatus(d); }
+  else if (data.last_run) { d.last = data.last_run.substring(0,16).replace('T',' ') + ' UTC'; }
+}
+
+function pollStatus(d) {
+  const timer = setInterval(async () => {
+    const r = await fetch('/api/v1/scan/status');
+    const data = await r.json();
+    if (!data.running) {
+      clearInterval(timer);
+      d.loading = false;
+      if (data.error) { d.msg = '✗ ' + data.error; }
+      else { d.msg = ''; d.last = data.last_run.substring(0,16).replace('T',' ') + ' UTC'; window.location.reload(); }
+    }
+  }, 3000);
+}
+
+function filterScan() {
+  const seg = document.getElementById('seg-filter').value;
+  const status = document.getElementById('status-filter').value;
+  let count = 0;
+  document.querySelectorAll('.scan-row').forEach(row => {
+    const ok = (!seg || row.dataset.segment === seg) && (!status || row.dataset.status === status);
+    row.style.display = ok ? '' : 'none';
+    if (ok) count++;
+  });
+  document.getElementById('scan-count').textContent = count + ' รายการ';
+}
+</script>
+{% endblock %}
