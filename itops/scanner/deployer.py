@@ -32,7 +32,7 @@ _TASK_XML = """\
   <Actions Context="LocalSystem">
     <Exec>
       <Command>{python_exe}</Command>
-      <Arguments>-m ksl_itops.agent.run --config "{config_path}" --policies "{policies_path}"</Arguments>
+      <Arguments>-m itops.agent.run --config "{config_path}" --policies "{policies_path}"</Arguments>
       <WorkingDirectory>{work_dir}</WorkingDirectory>
     </Exec>
   </Actions>
@@ -105,7 +105,7 @@ def deploy_via_psexec(
     # 3. Run agent once immediately
     _run([
         "psexec", f"\\\\{ip}", "-u", domain_user, "-p", domain_password,
-        "-s", "-d", python_exe, "-m", "ksl_itops.agent.run",
+        "-s", "-d", python_exe, "-m", "itops.agent.run",
         "--config", config_path, "--policies", policies_path, "--no-jitter"
     ], timeout=120)
 
@@ -125,7 +125,7 @@ def deploy_via_wmi(
     """
     Trigger agent run on remote machine via WMIC (no file copy, agent already present).
     """
-    cmd_line = f'"{python_exe}" -m ksl_itops.agent.run --config "{config_path}" --policies "{policies_path}" --no-jitter'
+    cmd_line = f'"{python_exe}" -m itops.agent.run --config "{config_path}" --policies "{policies_path}" --no-jitter'
     code, out = _run([
         "wmic", f"/node:{ip}", f"/user:{domain_user}", f"/password:{domain_password}",
         "process", "call", "create", cmd_line

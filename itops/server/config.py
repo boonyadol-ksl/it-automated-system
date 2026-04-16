@@ -11,5 +11,5 @@ class ServerSettings(BaseSettings):
     log_level: str = "info"
 
     api_key: str = "change-me"
-    database_url: str = "sqlite:///./data/ksl_itops.db"
+    database_url: str = "sqlite:///./data/itops.db"
 
